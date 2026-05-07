@@ -3,8 +3,10 @@
  * Posts messages to your Facebook PAGE using Page Access Token
  * TEAM STARTCOPE BETA · MIRAI BOT V6
  *
+ * Posts every 4 MINUTES · 24/7 walang tigil · No quiet window
+ *
  * Usage:
- *   !fbpage on            — Start auto-posting to FB Page every ~30 min
+ *   !fbpage on            — Start auto-posting to FB Page every ~4 min
  *   !fbpage off           — Stop auto-posting
  *   !fbpage post [msg]    — Post a custom message NOW to FB Page
  *   !fbpage status        — Check status + page info
@@ -16,9 +18,12 @@ const fs   = require('fs-extra');
 const path = require('path');
 const bold = require('../../utils/bold');
 
-const VERSION  = '1.0.0';
+const VERSION  = '2.0.0';
 const TEAM     = 'TEAM STARTCOPE BETA';
-const GV       = 'v19.0'; // Graph API version
+const GV       = 'v19.0';
+
+// Post every 4 minutes — 24/7 walang tigil
+const POST_INTERVAL = 4 * 60 * 1000;
 
 const STATE_FILE = path.join(process.cwd(), 'utils/data/fbpage_state.json');
 const TOKEN_FILE = path.join(process.cwd(), 'utils/data/fbpage_token.json');
@@ -44,7 +49,7 @@ let state = {
   enabled:      false,
   count:        0,
   lastPostedAt: null,
-  pageId:       null,
+  pageId:       '861415117054346',
   pageName:     null,
 };
 
@@ -61,11 +66,11 @@ function persist() {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-const pick   = a => a[Math.floor(Math.random() * a.length)];
-const rand   = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
-const sleep  = ms => new Promise(r => setTimeout(r, ms));
+const pick  = a => a[Math.floor(Math.random() * a.length)];
+const rand  = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
 function phHour() { return (new Date().getUTCHours() + 8) % 24; }
-function inQuietWindow() { const h = phHour(); return h >= 1 && h < 5; }
 
 // ── Graph API caller ──────────────────────────────────────────────────────────
 async function graphPost(endpoint, params) {
@@ -107,13 +112,21 @@ async function fetchPageInfo() {
   }
 }
 
+// ── Check token permissions ───────────────────────────────────────────────────
+async function fetchTokenPerms() {
+  try {
+    const data = await graphGet('me/permissions');
+    return (data.data || []).filter(p => p.status === 'granted').map(p => p.permission);
+  } catch { return []; }
+}
+
 // ── Post to FB Page ───────────────────────────────────────────────────────────
 async function postToPage(message) {
   try {
     const token = getToken();
     if (!token) throw new Error('Walang token. Gamitin: !fbpage token [your_token]');
 
-    // Post to the Page's feed via Graph API (no webhook needed)
+    // Use me/feed — with a Page Access Token, "me" = the Page itself
     const data = await graphPost('me/feed', { message });
     return data.id || data.post_id || 'posted';
   } catch (e) {
@@ -137,53 +150,58 @@ const PAGE_MESSAGES = [
   '📻 Kumusta ka? 😊\n\nAng HOME RADIO 95.1 NAGA ay online na!\nI-click para makinig ng LIVE:\nhttps://hrmanila.radioca.st/stream\n\n🏷️ TEAM STARTCOPE BETA · MOR NAGA\n\n#HomeRadioNaga #LiveRadio #Philippines',
   '🌟 ANG PAGBABALIK — HOME RADIO 95.1 NAGA!\n\n🎵 Online live ngayon sa:\nhttps://hrmanila.radioca.st/stream\n\n📍 Gawad Kalinga, Naga City · 2026\n\n#NagaCity #HomeRadio #Libre',
   '🎶 Magandang araw mula sa HOME RADIO 95.1 NAGA!\n\nMakinig ng LIBRE — 24/7 LIVE:\nhttps://hrmanila.radioca.st/stream\n\n🙌 Salamat sa inyong suporta!\n\n#HomeRadioNaga #MorNaga',
+  '📡 STREAMING NA! HOME RADIO 95.1 NAGA\n\n🎵 Online at libre para sa lahat!\nhttps://hrmanila.radioca.st/stream\n\n💚 I-share sa mga kaibigan mo!\n\n#HomeRadio951 #NagaCity #StreamNow',
+  '🔥 NAGA CITY — HOME RADIO 95.1 ay BUKAS!\n\n📻 24/7 Live Streaming:\nhttps://hrmanila.radioca.st/stream\n\n❤️ Para sa lahat ng Nagueño!\n\n#HomeRadioNaga #951Naga #FreeListen',
+  '🎙️ I-TUNE IN NA KAY HOME RADIO 95.1 NAGA!\n\n🌐 Online Stream (LIBRE):\nhttps://hrmanila.radioca.st/stream\n\n📍 Gawad Kalinga, Naga City\n🇵🇭 TEAM STARTCOPE BETA\n\n#MorNaga #HomeRadio #Philippines',
+  '💚 SUPORTAHAN NATIN ANG HOME RADIO 95.1 NAGA!\n\n📻 Live online stream:\nhttps://hrmanila.radioca.st/stream\n\n🎵 Musika, balita, at entertainment — libre!\n\n#HomeRadio #NagaCity #Libre',
+  '🌅 MAGANDANG ARAW MULA SA HOME RADIO 95.1 NAGA!\n\n🎵 Simulan ang iyong araw sa tamang musika!\nLIVE: https://hrmanila.radioca.st/stream\n\n#MorNaga #HomeRadio951 #GoodVibes',
+  '🙏 MAHAL KA NG DIYOS!\n\nHindi ka nag-iisa sa iyong mga pagsubok. Ang Diyos ay laging kasama mo.\n\n"Sapagkat gayon na lamang ang pagmamahal ng Diyos sa sanlibutan, na ibinigay Niya ang Kanyang bugtong na Anak." — Juan 3:16\n\n✝️ Huwag kailanman sumuko. ❤️\n\n#HomeRadioNaga #Faith #Philippines',
+  '✝️ HESUS AY KASAMA MO NGAYON.\n\nKahit parang mag-isa ka — hindi ka tunay na nag-iisa. Si Hesus ay nakakaalam ng bawat hirap mo.\n\n"Ako ay lagi ninyong kasama, hanggang sa katapusan ng sanlibutan." — Mateo 28:20\n\n📻 HOME RADIO 95.1 NAGA LIVE:\nhttps://hrmanila.radioca.st/stream',
+  '🌟 MAY PLANO ANG DIYOS PARA SA IYO!\n\n"Sapagkat alam Ko ang mga plano Ko para sa inyo, mga plano para sa kapakanan." — Jeremias 29:11\n\n✝️ Magtiwala sa Kanya!\n\n📻 Pakinggan ang HOME RADIO 95.1 NAGA:\nhttps://hrmanila.radioca.st/stream\n\n#MorNaga #Faith #NagaCity',
+  '💪 LABAN PA TAYO!\n\nAng buhay ay puno ng pagsubok, ngunit ang Diyos ay mas dakila sa lahat ng problema mo.\n\n🙏 Manalangin. Magtiwala. Huwag sumuko.\n\n📻 HOME RADIO 95.1 NAGA — kasama mo araw at gabi:\nhttps://hrmanila.radioca.st/stream',
+  '🇵🇭 PARA SA BAWAT PILIPINO NA NAGBABASA NITO:\n\nAng Diyos ay nagmamahal sa iyo — kahit nasaan ka man ngayon.\n\nMagtiwala. Manalangin. Huwag sumuko. ✝️❤️🙏\n\n📻 SAMAHAN MO KAMI SA HOME RADIO 95.1 NAGA:\nhttps://hrmanila.radioca.st/stream\n\n#HomeRadioNaga #Philippines',
 ];
 
 function composeAutoPost() {
-  const h   = phHour();
-  const greet = h < 12 ? 'Magandang umaga' : h < 18 ? 'Magandang hapon' : 'Magandang gabi';
-  const div = pick(DIVIDERS);
-  const msg = pick(PAGE_MESSAGES);
-  return `${greet}! 🌸\n\n${div}\n${msg}\n${div}\n\n🏷️ ${TEAM} · MIRAI BOT V6`;
+  const h      = phHour();
+  const greet  = h < 12 ? 'Magandang umaga' : h < 18 ? 'Magandang hapon' : 'Magandang gabi';
+  const div    = pick(DIVIDERS);
+  const msg    = pick(PAGE_MESSAGES);
+  const now    = new Date().toLocaleString('en-PH', { timeZone: 'Asia/Manila', dateStyle: 'medium', timeStyle: 'short' });
+  return `${greet}! 🌸\n\n${div}\n${msg}\n${div}\n\n📅 ${now} PH\n🏷️ ${TEAM} · MIRAI BOT V6`;
 }
 
 // ── Auto-post scheduler ───────────────────────────────────────────────────────
 let autoTimer = null;
 let autoApi   = null;
-let autoTid   = null;
 
 async function runAutoPost() {
   if (!state.enabled) return;
 
-  if (inQuietWindow()) {
-    console.log('[FBPage] 🌙 Quiet window (1AM–5AM PH) — skipping post');
-    scheduleAutoPost();
-    return;
-  }
-
   try {
-    await sleep(rand(2000, 6000)); // pre-post human delay
+    await sleep(rand(1000, 4000)); // short human-like delay
     const message = composeAutoPost();
     const postId  = await postToPage(message);
 
     state.count++;
     state.lastPostedAt = new Date().toISOString();
     persist();
-    console.log(`[FBPage #${state.count}] ✅ Posted to Facebook Page — ID: ${postId}`);
-
-    // Save appstate after post
-    try {
-      if (autoApi) {
-        const appstate = autoApi.getAppState();
-        if (appstate && Array.isArray(appstate)) {
-          fs.writeFileSync('./appstate.json', JSON.stringify(appstate, null, 2));
-        }
-      }
-    } catch {}
+    console.log(`[FBPage #${state.count}] ✅ Posted to FB Page (ID: ${state.pageId}) — Post: ${postId}`);
 
   } catch (e) {
-    console.error('[FBPage] ❌ Auto-post error:', e.message?.slice(0, 120));
-    // Backoff on errors
+    const errMsg = e.response?.data?.error?.message || e.message || String(e);
+    console.error('[FBPage] ❌ Auto-post error:', errMsg?.slice(0, 120));
+
+    // On token/auth error, stop and warn
+    if (errMsg.toLowerCase().includes('token') || errMsg.toLowerCase().includes('session') || errMsg.toLowerCase().includes('auth')) {
+      console.error('[FBPage] 🔒 Token issue — auto-post paused. Use !fbpage token [new_token] to update.');
+      // Retry in 15 min for token errors
+      if (autoTimer) clearTimeout(autoTimer);
+      autoTimer = setTimeout(runAutoPost, 15 * 60 * 1000);
+      return;
+    }
+
+    // Generic error — back off 10 min then retry
     if (autoTimer) clearTimeout(autoTimer);
     autoTimer = setTimeout(runAutoPost, 10 * 60 * 1000);
     return;
@@ -196,10 +214,11 @@ function scheduleAutoPost() {
   if (autoTimer) { clearTimeout(autoTimer); autoTimer = null; }
   if (!state.enabled) return;
 
-  // Every ~30 min ± 8 min random jitter
-  const delay = (30 * 60 * 1000) + (Math.random() - 0.5) * 2 * 8 * 60 * 1000;
-  const mins  = Math.round(delay / 60000);
-  console.log(`[FBPage] ⏱️ Next auto-post in ~${mins} min`);
+  // Every 4 minutes ± 30 sec random jitter (anti-detect)
+  const jitter = (Math.random() - 0.5) * 2 * 30000;
+  const delay  = POST_INTERVAL + jitter;
+  const secs   = Math.round(delay / 1000);
+  console.log(`[FBPage] ⏱️ Next auto-post in ~${secs}s (Page: ${state.pageId})`);
   autoTimer = setTimeout(runAutoPost, delay);
 }
 
@@ -207,8 +226,8 @@ function startAutoPost(api) {
   autoApi        = api;
   state.enabled  = true;
   persist();
-  console.log('[FBPage] ✅ Auto-post started — every ~30 min to Facebook Page');
-  autoTimer = setTimeout(runAutoPost, rand(10000, 30000)); // first post in 10–30 sec
+  console.log('[FBPage] ✅ Auto-post STARTED — every ~4 min · 24/7 walang tigil · Page: ' + state.pageId);
+  autoTimer = setTimeout(runAutoPost, rand(5000, 15000)); // first post in 5–15 sec
 }
 
 function stopAutoPost() {
@@ -224,7 +243,7 @@ module.exports.config = {
   version:         VERSION,
   hasPermssion:    2,
   credits:         TEAM,
-  description:     'Auto-post to Facebook PAGE using Graph API token — walang webhook!',
+  description:     'Auto-post to Facebook PAGE every 4 min · 24/7 · walang webhook!',
   commandCategory: 'Admin',
   usages:          '[on | off | post <msg> | status | token <token>]',
   cooldowns:       5,
@@ -232,10 +251,17 @@ module.exports.config = {
 
 module.exports.onLoad = function ({ api }) {
   loadState();
-  if (state.enabled) {
+
+  // Always auto-start if token exists
+  const token = getToken();
+  if (token) {
     autoApi = api;
-    console.log('[FBPage] 🔄 Restored state — resuming auto-post...');
-    setTimeout(scheduleAutoPost, 10000);
+    state.enabled = true;
+    persist();
+    console.log('[FBPage] 🔄 Token found — auto-starting FB Page poster (every 4 min, 24/7)...');
+    setTimeout(() => startAutoPost(api), rand(8000, 20000)); // start after 8–20 sec (let bot settle)
+  } else {
+    console.log('[FBPage] ⚠️ No FB_PAGE_TOKEN found — use !fbpage token [token] to set it.');
   }
 };
 
@@ -246,7 +272,7 @@ module.exports.run = async function ({ api, event, args }) {
 
   // ── help / no args ──────────────────────────────────────────────────────────
   if (!sub || sub === 'help') {
-    const token = getToken();
+    const token  = getToken();
     const masked = token ? token.slice(0, 8) + '...' + token.slice(-6) : '❌ WALA';
     return api.sendMessage(
       `╔══════════════════════════════════╗\n` +
@@ -254,7 +280,8 @@ module.exports.run = async function ({ api, event, args }) {
       `║  🏷️  ${bold(TEAM)}   ║\n` +
       `╚══════════════════════════════════╝\n\n` +
       `📘 ${bold('Posts to Facebook PAGE via Graph API')}\n` +
-      `🔑 ${bold('No webhook needed — Direct API only!')}\n\n` +
+      `🔑 ${bold('No webhook needed — Direct API only!')}\n` +
+      `⏱️ ${bold('Every ~4 MINUTES · 24/7 walang tigil!')}\n\n` +
       `📋 ${bold('COMMANDS:')}\n${'─'.repeat(34)}\n` +
       `${P}fbpage on              — I-start auto-post\n` +
       `${P}fbpage off             — I-stop\n` +
@@ -262,10 +289,11 @@ module.exports.run = async function ({ api, event, args }) {
       `${P}fbpage status          — Check status\n` +
       `${P}fbpage token [token]   — Update token\n\n` +
       `📊 ${bold('CURRENT STATUS:')}\n` +
-      `  • ${bold('State:')}  ${state.enabled ? '🟢 AUTO-POST ON' : '🔴 OFF'}\n` +
-      `  • ${bold('Token:')}  ${masked}\n` +
-      `  • ${bold('Page:')}   ${state.pageName || '(di pa na-fetch)'}\n` +
-      `  • ${bold('Posts:')}  ${state.count} total\n` +
+      `  • ${bold('State:')}   ${state.enabled ? '🟢 AUTO-POST ON (4 min)' : '🔴 OFF'}\n` +
+      `  • ${bold('Token:')}   ${masked}\n` +
+      `  • ${bold('Page ID:')} ${state.pageId || 'N/A'}\n` +
+      `  • ${bold('Page:')}    ${state.pageName || '(di pa na-fetch)'}\n` +
+      `  • ${bold('Posts:')}   ${state.count} total\n` +
       `\n🔒 ${bold('Admin only')} | Graph API ${GV}`,
       threadID, messageID
     );
@@ -306,15 +334,16 @@ module.exports.run = async function ({ api, event, args }) {
 
     return api.sendMessage(
       `📊 ${bold('FBPAGE STATUS')}\n${'─'.repeat(34)}\n` +
-      `  • ${bold('Auto-Post:')}  ${state.enabled ? '🟢 ON' : '🔴 OFF'}\n` +
-      `  • ${bold('Page:')}       ${pageInfo?.name || state.pageName || (errMsg ? '❌ ' + errMsg.slice(0, 50) : 'N/A')}\n` +
-      `  • ${bold('Page ID:')}    ${pageInfo?.id || state.pageId || 'N/A'}\n` +
-      `  • ${bold('Fans:')}       ${pageInfo?.fan_count ? pageInfo.fan_count.toLocaleString() : 'N/A'}\n` +
-      `  • ${bold('Token:')}      ${masked}\n` +
-      `  • ${bold('API Ver:')}    Graph ${GV}\n` +
-      `  • ${bold('PH Time:')}    ${String(h).padStart(2,'0')}:xx ${inQuietWindow() ? '🌙 Quiet' : '🟢 Active'}\n` +
+      `  • ${bold('Auto-Post:')}   ${state.enabled ? '🟢 ON (every ~4 min)' : '🔴 OFF'}\n` +
+      `  • ${bold('Mode:')}        24/7 walang tigil\n` +
+      `  • ${bold('Page:')}        ${pageInfo?.name || state.pageName || (errMsg ? '❌ ' + errMsg.slice(0, 50) : 'N/A')}\n` +
+      `  • ${bold('Page ID:')}     ${pageInfo?.id || state.pageId || 'N/A'}\n` +
+      `  • ${bold('Fans:')}        ${pageInfo?.fan_count ? pageInfo.fan_count.toLocaleString() : 'N/A'}\n` +
+      `  • ${bold('Token:')}       ${masked}\n` +
+      `  • ${bold('API Ver:')}     Graph ${GV}\n` +
+      `  • ${bold('PH Time:')}     ${String(h).padStart(2,'0')}:xx\n` +
       `  • ${bold('Total posts:')} ${state.count}\n` +
-      `  • ${bold('Last post:')}  ${state.lastPostedAt ? new Date(state.lastPostedAt).toLocaleString('en-PH', { timeZone: 'Asia/Manila' }) : 'N/A'}\n` +
+      `  • ${bold('Last post:')}   ${state.lastPostedAt ? new Date(state.lastPostedAt).toLocaleString('en-PH', { timeZone: 'Asia/Manila' }) : 'N/A'}\n` +
       `\n🏷️ ${bold(TEAM)} · MIRAI BOT V6`,
       threadID, messageID
     );
@@ -332,20 +361,19 @@ module.exports.run = async function ({ api, event, args }) {
       );
     }
     if (state.enabled) {
-      return api.sendMessage(`⚠️ ${bold('Naka-ON na ang FBPage auto-post.')}\nI-stop: ${P}fbpage off`, threadID, messageID);
+      return api.sendMessage(`⚠️ ${bold('Naka-ON na ang FBPage auto-post (every 4 min).')}\nI-stop: ${P}fbpage off`, threadID, messageID);
     }
-    // Verify token first
     api.sendMessage(`⏳ ${bold('Bine-verify ang token...')}`, threadID, messageID);
     try {
       const pageInfo = await fetchPageInfo();
       startAutoPost(api);
       return api.sendMessage(
-        `✅ ${bold('FBPAGE AUTO-POST — STARTED!')}\n\n` +
+        `✅ ${bold('FBPAGE AUTO-POST — STARTED! 🔥')}\n\n` +
         `📘 ${bold('Page:')}     ${pageInfo.name}\n` +
         `🆔 ${bold('Page ID:')} ${pageInfo.id}\n` +
-        `⏱️ ${bold('Every:')}   ~30 min (±8 min jitter)\n` +
-        `🌙 ${bold('Quiet:')}   1AM–5AM PH (skip)\n\n` +
-        `🕒 ${bold('First post in 10–30 seconds...')}\n` +
+        `⏱️ ${bold('Every:')}   ~4 MINUTO · 24/7 walang tigil!\n` +
+        `🌙 ${bold('Quiet:')}   WALA — non-stop 24 oras!\n\n` +
+        `🕒 ${bold('First post in 5–15 seconds...')}\n` +
         `💡 I-stop: ${P}fbpage off\n🏷️ ${bold(TEAM)}`,
         threadID, messageID
       );
@@ -395,6 +423,7 @@ module.exports.run = async function ({ api, event, args }) {
       return api.sendMessage(
         `✅ ${bold('NA-POST SA FACEBOOK PAGE!')}\n\n` +
         `📘 ${bold('Page:')}     ${state.pageName || 'Your Page'}\n` +
+        `🆔 ${bold('Page ID:')} ${state.pageId}\n` +
         `🆔 ${bold('Post ID:')} ${postId}\n` +
         `📝 ${bold('Message:')} ${customMsg.slice(0, 80)}${customMsg.length > 80 ? '...' : ''}\n\n` +
         `🏷️ ${bold(TEAM)}`,
