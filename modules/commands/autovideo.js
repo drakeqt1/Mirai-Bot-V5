@@ -163,35 +163,39 @@ async function getNewsItems() {
   return fresh.slice(0, 15);
 }
 
-// ── Tagalog news script (100% Tagalog, full broadcast) ────────────────────────
-function buildFullBroadcastScript(articles) {
-  const now = new Date().toLocaleString('fil-PH', { timeZone: 'Asia/Manila', dateStyle: 'long', timeStyle: 'short' });
-  let script =
-    `Magandang araw po sa inyong lahat! Ito ang TEAM STARTCOPE BETA Philippines News Broadcast, ika-${now}. ` +
-    `Narito na po ang pinakabagong balita mula sa iba't ibang panig ng Pilipinas at mundo. ` +
-    `Manatiling nakatuon. `;
+// ── PH time-aware greeting ────────────────────────────────────────────────────
+function phGreeting() {
+  const h = (new Date().getUTCHours() + 8) % 24;
+  if (h >= 5  && h < 12) return 'Magandang umaga';
+  if (h >= 12 && h < 18) return 'Magandang hapon';
+  if (h >= 18 && h < 22) return 'Magandang gabi';
+  return 'Magandang hatinggabi';
+}
 
-  const tops = articles.slice(0, 12);
+// ── Tagalog news script (time-aware greeting, capped to ~4000 chars for TTS) ──
+function buildFullBroadcastScript(articles) {
+  const now      = new Date().toLocaleString('fil-PH', { timeZone: 'Asia/Manila', dateStyle: 'long', timeStyle: 'short' });
+  const greeting = phGreeting();
+  let script =
+    `${greeting} po sa inyong lahat! Ito ang TEAM STARTCOPE BETA Philippines News Broadcast, ika-${now}. ` +
+    `Narito na po ang pinakabagong balita mula sa iba't ibang panig ng Pilipinas. `;
+
+  // Limit to 5 articles to stay under TTS character limit (~4000 chars max)
+  const tops = articles.slice(0, 5);
+  const nums = ['Una', 'Pangalawa', 'Pangatlo', 'Pang-apat', 'Panlima'];
   tops.forEach((a, i) => {
-    const num = ['Una', 'Pangalawa', 'Pangatlo', 'Pang-apat', 'Panlima',
-                 'Pang-anim', 'Pampito', 'Pangwalo', 'Pansiyam', 'Pang-sampu',
-                 'Pang-labing-isa', 'Pang-labindalawa'][i] || `Bilang ${i + 1}`;
-    script += `${num} sa aming mga balita: ${a.title}. `;
-    if (a.desc && a.desc.length > 15) {
-      script += `${a.desc.slice(0, 200).replace(/\s+/g, ' ')}. `;
-    }
-    script += `Ayon sa ${a.source}. `;
-    if (i < tops.length - 1) script += `Sunod na balita: `;
+    const title = (a.title || '').slice(0, 120);
+    script += `${nums[i] || `Bilang ${i + 1}`} sa aming mga balita: ${title}. `;
+    if (a.source) script += `Ayon sa ${a.source}. `;
+    if (i < tops.length - 1) script += `Sunod: `;
   });
 
   script +=
-    `Iyan po ang lahat ng aming balita para ngayon. ` +
-    `Ito ay TEAM STARTCOPE BETA Philippines News, ang inyong mapagkakatiwalaang pinagkukunan ng balita. ` +
-    `Ang balitang ito ay awtomatikong na-broadcast ng aming news system. ` +
-    `Manatiling updated, manatiling ligtas, at manatiling tapat sa batas. ` +
-    `Hanggang sa muli, magandang araw po sa inyong lahat! Salamat po at mabuhay ang Pilipinas!`;
+    `Iyan po ang aming mga balita ngayon. ` +
+    `Manatiling updated at ligtas. ` +
+    `Hanggang sa muli, ${greeting} muli at mabuhay ang Pilipinas!`;
 
-  return script;
+  return script.slice(0, 4000); // Hard cap — TTS service limit
 }
 
 // ── Tagalog TTS ───────────────────────────────────────────────────────────────
@@ -244,78 +248,68 @@ async function makeAudioTrack(voiceFp) {
   return mixFp;
 }
 
-// ── Build 5-min base video then stream-loop to 2 hours ────────────────────────
+// ── Build news video (5-min segment posted to Facebook Wall — like automor) ───
 async function makeFullNewsVideo(bgFp, anchorFp, audioFp, articles) {
-  const baseFp = path.join(TEMP_DIR, `av_base_${Date.now()}.mp4`);
-  const fullFp = path.join(TEMP_DIR, `av_full_${Date.now()}.mp4`);
+  const outFp = path.join(TEMP_DIR, `av_video_${Date.now()}.mp4`);
 
-  const headline  = (articles[0]?.title || 'BALITA NG PILIPINAS').replace(/['"\\:<>]/g, '').slice(0, 52);
-  const source    = (articles[0]?.source || 'PhilStar').replace(/['"\\]/g, '').slice(0, 18);
-  const tickerRaw = articles.slice(0, 8).map(a => `● ${a.title}`).join('  ').replace(/['"\\:<>]/g, '');
-  const ticker    = tickerRaw.slice(0, 220);
-  const now       = new Date().toLocaleString('fil-PH', { timeZone: 'Asia/Manila', dateStyle: 'medium', timeStyle: 'short' }).replace(/['"\\]/g, '').slice(0, 30);
+  const headline  = (articles[0]?.title || 'BALITA NG PILIPINAS').replace(/['"\\:<>=]/g, '').slice(0, 50);
+  const source    = (articles[0]?.source || 'PhilStar').replace(/['"\\]/g, '').slice(0, 16);
+  const tickerRaw = articles.slice(0, 6).map(a => (a.title || '').replace(/['"\\:<>=]/g, '').slice(0, 60)).join(' ● ');
+  const ticker    = tickerRaw.slice(0, 180);
+  const now       = new Date().toLocaleString('en-PH', { timeZone: 'Asia/Manila', dateStyle: 'short', timeStyle: 'short' }).replace(/['"\\]/g, '').slice(0, 25);
 
-  // ── STEP 1: Encode 5-minute base video (anchor + text overlays + audio) ────
-  const vf = [
-    // Scale background
+  // ── Filter complex with CORRECT `;` separators between chains ────────────
+  // Chain 1: scale bg → [bg]
+  // Chain 2: scale anchor → [anchor]
+  // Chain 3: overlay → [wa]
+  // Chain 4: all drawtext filters chained with , → [out]
+  const fc = [
     '[0:v]scale=640:360[bg]',
-    // Scale anchor person
-    '[1:v]scale=160:260[anchor]',
-    // Overlay anchor in bottom-right with vertical bob animation (person moving)
-    // y sine wave = person swaying while reporting
-    '[bg][anchor]overlay=x=W-w-12:y=\'H-h-5+14*sin(2*PI*t/1.75)\'[wa]',
-    // TOP: network branding bar
-    '[wa]drawtext=text=\'📡 PHILIPPINES NEWS BROADCAST - TEAM STARTCOPE BETA\'' +
-    ':fontsize=16:fontcolor=white:box=1:boxcolor=0x003399@0.94:boxborderw=8' +
-    ':x=(w-tw)/2:y=6',
-    // BREAKING NEWS badge (top-left, below branding)
-    'drawtext=text=\'🔴 BREAKING NEWS\'' +
-    ':fontsize=19:fontcolor=white:box=1:boxcolor=red@0.92:boxborderw=8' +
-    ':x=10:y=34',
-    // Timestamp (top-right)
-    `drawtext=text='${now} PH'` +
-    ':fontsize=13:fontcolor=white:box=1:boxcolor=black@0.65:boxborderw=5' +
-    ':x=w-tw-10:y=38',
-    // Headline (center, lower-middle area)
-    `drawtext=text='${headline}'` +
-    ':fontsize=20:fontcolor=white:box=1:boxcolor=black@0.72:boxborderw=8' +
-    ':x=(w-tw)/2:y=h/2-30',
-    // Source label
-    `drawtext=text='SOURCE\\: ${source}'` +
-    ':fontsize=14:fontcolor=yellow:box=1:boxcolor=black@0.55:boxborderw=5' +
-    ':x=(w-tw)/2:y=h/2+16',
-    // Scrolling news ticker at the very bottom (left-to-right scroll)
-    `drawtext=text='${ticker}'` +
-    ':fontsize=13:fontcolor=white:box=1:boxcolor=0x001166@0.90:boxborderw=5' +
-    `:x='w-mod(t*90\\,w+tw)':y=h-22`,
-  ].join(',');
+    '[1:v]scale=120:190,format=rgba[anchor]',
+    '[bg][anchor]overlay=x=W-w-8:y=H-h-8[wa]',
+    `[wa]drawtext=text='PHILIPPINES NEWS BROADCAST':fontsize=15:fontcolor=white:box=1:boxcolor=0x003399@0.92:boxborderw=7:x=(w-tw)/2:y=5,` +
+    `drawtext=text='BREAKING NEWS':fontsize=18:fontcolor=white:box=1:boxcolor=red@0.90:boxborderw=7:x=8:y=30,` +
+    `drawtext=text='${now} PH':fontsize=12:fontcolor=white:box=1:boxcolor=black@0.60:boxborderw=4:x=w-tw-8:y=34,` +
+    `drawtext=text='${headline}':fontsize=18:fontcolor=white:box=1:boxcolor=0x111111@0.80:boxborderw=8:x=(w-tw)/2:y=h/2-22,` +
+    `drawtext=text='${source}':fontsize=13:fontcolor=yellow:box=1:boxcolor=black@0.50:boxborderw=4:x=(w-tw)/2:y=h/2+14,` +
+    `drawtext=text='${ticker}':fontsize=12:fontcolor=white:box=1:boxcolor=0x001166@0.88:boxborderw=4:x='w-mod(t*80\\,w+tw)':y=h-20[out]`,
+  ].join(';');
 
-  const cmd1 =
+  const cmd =
     `ffmpeg -y ` +
     `-loop 1 -i "${bgFp}" ` +
-    `-loop 1 -i "${anchorFp}" ` +
+    `-loop 1 -i "${anchorFp || bgFp}" ` +
     `-i "${audioFp}" ` +
-    `-filter_complex "${vf}" ` +
-    `-map "[wa]" -map 2:a ` +
-    `-c:v libx264 -preset ultrafast -crf 46 -pix_fmt yuv420p ` +
+    `-filter_complex "${fc}" ` +
+    `-map "[out]" -map 2:a ` +
+    `-c:v libx264 -preset ultrafast -crf 38 -pix_fmt yuv420p ` +
     `-c:a aac -b:a 64k -ar 44100 -ac 1 ` +
-    `-t ${BASE_SECS} "${baseFp}" 2>&1`;
+    `-af "apad=whole_dur=${BASE_SECS}" ` +
+    `-t ${BASE_SECS} "${outFp}" 2>&1`;
 
-  // Allow 8 minutes for base encoding
-  await runCmd(cmd1, 8 * 60 * 1000);
-  if (!fs.existsSync(baseFp) || fs.statSync(baseFp).size < 50000) throw new Error('Base video encoding failed');
-  console.log(`[AutoVideo] ✅ Base segment ready: ${Math.round(fs.statSync(baseFp).size / 1024 / 1024)}MB`);
+  console.log(`[AutoVideo] 🎬 Encoding ${BASE_SECS}s news video...`);
+  await runCmd(cmd, 8 * 60 * 1000);
 
-  // ── STEP 2: Stream-loop base to 2 hours (no re-encode — FAST!) ──────────────
-  const cmd2 = `ffmpeg -y -stream_loop -1 -i "${baseFp}" -c copy -t ${FULL_SECS} "${fullFp}" 2>&1`;
-  await runCmd(cmd2, 5 * 60 * 1000);
-  if (!fs.existsSync(fullFp) || fs.statSync(fullFp).size < 100000) throw new Error('2-hour loop failed');
+  if (!fs.existsSync(outFp) || fs.statSync(outFp).size < 50000) {
+    // Fallback: simple video without anchor overlay
+    console.log('[AutoVideo] ⚠️ Overlay encode failed, trying simple fallback...');
+    const fallbackFc =
+      `[0:v]scale=640:360,` +
+      `drawtext=text='BREAKING NEWS':fontsize=22:fontcolor=white:box=1:boxcolor=red@0.90:boxborderw=8:x=10:y=10,` +
+      `drawtext=text='${headline}':fontsize=16:fontcolor=white:box=1:boxcolor=black@0.75:boxborderw=8:x=(w-tw)/2:y=h/2-20,` +
+      `drawtext=text='TEAM STARTCOPE BETA':fontsize=13:fontcolor=yellow:box=1:boxcolor=black@0.55:boxborderw=5:x=(w-tw)/2:y=h-25[vout]`;
+    const cmd2 =
+      `ffmpeg -y -loop 1 -i "${bgFp}" -i "${audioFp}" ` +
+      `-filter_complex "${fallbackFc}" -map "[vout]" -map 1:a ` +
+      `-c:v libx264 -preset ultrafast -crf 40 -pix_fmt yuv420p ` +
+      `-c:a aac -b:a 64k -af "apad=whole_dur=${BASE_SECS}" -t ${BASE_SECS} "${outFp}" 2>&1`;
+    await runCmd(cmd2, 6 * 60 * 1000);
+    if (!fs.existsSync(outFp) || fs.statSync(outFp).size < 20000) throw new Error('Video encoding failed (both attempts)');
+  }
 
-  const sizeMB = Math.round(fs.statSync(fullFp).size / 1024 / 1024);
-  console.log(`[AutoVideo] ✅ 2-hour video ready: ${sizeMB}MB`);
-
-  fs.removeSync(baseFp);
-  return fullFp;
+  const sizeMB = Math.round(fs.statSync(outFp).size / 1024 / 1024);
+  console.log(`[AutoVideo] ✅ Video ready: ${sizeMB}MB — ${BASE_SECS}s`);
+  return outFp;
 }
 
 // ── Compose Facebook WALL post body ──────────────────────────────────────────
@@ -377,7 +371,7 @@ function handleError(e, cycleFn) {
 async function runVideoCycle() {
   if (!state.enabled || !globalApi) return;
 
-  console.log(`[AutoVideo #${state.count + 1}] 🎬 Starting 2-hour news video build...`);
+  console.log(`[AutoVideo #${state.count + 1}] 🎬 Starting news video build (${BASE_SECS}s)...`);
   let voiceFp = null, audioFp = null, videoFp = null;
 
   try {
@@ -414,7 +408,8 @@ async function runVideoCycle() {
     const body = composePostBody(articles);
 
     // Post to Facebook WALL
-    console.log(`[AutoVideo] 📤 Uploading ${Math.round(fs.statSync(videoFp).size / 1024 / 1024)}MB 2-hour video to Facebook Wall...`);
+    const sizeMb = Math.round(fs.statSync(videoFp).size / 1024 / 1024);
+    console.log(`[AutoVideo] 📤 Uploading ${sizeMb}MB video to Facebook Wall...`);
     await doCreatePost(globalApi, body, fs.createReadStream(videoFp));
 
     state.count++;
@@ -423,7 +418,7 @@ async function runVideoCycle() {
     persist();
     saveAppstate(globalApi);
     if (global.protection?.clearCheckpoint) global.protection.clearCheckpoint(globalApi);
-    console.log(`[AutoVideo #${state.count}] ✅ 2-hour video posted to Facebook Wall!`);
+    console.log(`[AutoVideo #${state.count}] ✅ News video posted to Facebook Wall!`);
 
   } catch (e) {
     videoTimer = handleError(e, runVideoCycle);

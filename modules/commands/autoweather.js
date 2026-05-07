@@ -1,12 +1,11 @@
 /**
- * !autoweather — Auto-posts live Philippines weather VIDEO to ALL group chats
+ * !autoweather — Auto-posts live Philippines weather VIDEO to FACEBOOK WALL
  * Every 3 minutes · 24/7 walang tigil · FREE, no API key
- * Rotates through 50+ real Philippine cities
- * Posts VIDEO with Tagalog voice + background music to all GCs
+ * Rotates through 100+ real Philippine cities
+ * Posts weather IMAGE + VIDEO with Tagalog voice → Facebook Wall (like automor)
  *
- * DIFFERENT from !automor:
- *   !automor  → posts to Facebook WALL/TIMELINE
- *   !autoweather → posts to ALL GROUP CHATS (sendMessage)
+ * SAME AS AUTOMOR: posts to Facebook WALL (api.createPost)
+ * DIFFERENT content: weather image + video instead of news
  */
 
 const axios           = require('axios');
@@ -251,22 +250,32 @@ function tagalogCondition(desc) {
   return desc;
 }
 
-// ── Build Tagalog weather script (100% Tagalog, walang English) ───────────────
+// ── PH time-aware greeting ────────────────────────────────────────────────────
+function phGreeting() {
+  const h = (new Date().getUTCHours() + 8) % 24;
+  if (h >= 5  && h < 12) return 'Magandang umaga';
+  if (h >= 12 && h < 18) return 'Magandang hapon';
+  if (h >= 18 && h < 22) return 'Magandang gabi';
+  return 'Magandang hatinggabi';
+}
+
+// ── Build Tagalog weather script (time-aware greeting, 100% Tagalog) ──────────
 function buildTagalogScript(w, loc) {
   const now = new Date().toLocaleString('fil-PH', {
     timeZone: 'Asia/Manila',
     dateStyle: 'long',
     timeStyle: 'short',
   });
+  const greeting = phGreeting();
 
   if (!w) {
-    return `Magandang araw po! Ito ang weather update para sa ${loc}. ` +
+    return `${greeting} po! Ito ang weather update para sa ${loc}. ` +
       `Pakitingnan ang larawan para sa kumpletong forecast. Manatiling ligtas. Salamat po!`;
   }
 
   const cond = tagalogCondition(w.desc);
   return (
-    `Magandang araw po sa inyong lahat! Ito ang pinakabagong weather update para sa ${w.place}, ` +
+    `${greeting} po sa inyong lahat! Ito ang pinakabagong weather update para sa ${w.place}, ` +
     `ika-${now}. ` +
     `Kasalukuyang temperatura ay ${w.tempC} degrees Celsius, ` +
     `at pakiramdam ay ${w.feelsC} degrees. ` +
@@ -279,6 +288,15 @@ function buildTagalogScript(w, loc) {
     `Ito ay awtomatikong weather update mula sa inyong bot. ` +
     `Nagmamahal sa inyo, Mirai Bot. Salamat po at mabuhay!`
   );
+}
+
+// ── createPost wrapper (same as automor) ──────────────────────────────────────
+function doCreatePost(api, body, attachment) {
+  return new Promise((res, rej) => {
+    if (typeof api.createPost !== 'function') return rej(new Error('api.createPost not available'));
+    const msg = attachment ? { body, attachment } : { body };
+    api.createPost(msg, (err, url) => err ? rej(err) : res(url));
+  });
 }
 
 // ── Tagalog TTS voice ─────────────────────────────────────────────────────────
@@ -436,29 +454,31 @@ async function runWeatherCycle() {
 
     if (!imgFp) throw new Error(`No weather image for ${location}`);
 
-    // Build text body for the GC message
-    const now = new Date().toLocaleString('fil-PH', { timeZone: 'Asia/Manila', dateStyle: 'medium', timeStyle: 'short' });
+    // Build Facebook WALL post body (plain text, same style as automor)
+    const now = new Date().toLocaleString('en-PH', { timeZone: 'Asia/Manila', dateStyle: 'medium', timeStyle: 'short' });
+    const greeting = phGreeting();
     let body =
-      `🌤️ ${bold('WEATHER UPDATE')} — ${bold(w ? w.place : location)} 🇵🇭\n` +
-      `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
-      `📅 ${now} (Oras ng Pilipinas)\n\n`;
+      `${greeting}! 🌤️ WEATHER UPDATE — ${w ? w.place : location} 🇵🇭\n` +
+      `${'─'.repeat(30)}\n\n`;
 
     if (w) {
       body +=
-        `🌡️ ${bold('Temperatura:')} ${w.tempC}°C (Pakiramdam ${w.feelsC}°C)\n` +
-        `🌤️ ${bold('Kalagayan:')}  ${w.desc}\n` +
-        `💧 ${bold('Halumigmig:')} ${w.humidity}%\n` +
-        `💨 ${bold('Hangin:')}     ${w.windKmph} km/h ${w.windDir}\n` +
-        `📈 ${bold('Mataas:')} ${w.maxC}°C | ${bold('Mababa:')} ${w.minC}°C\n` +
-        `☀️ ${bold('UV Index:')}  ${w.uvIndex}\n`;
+        `📍 Location: ${w.place}, Philippines\n` +
+        `📅 ${now} PH\n\n` +
+        `🌡️ Temperature: ${w.tempC}°C (Feels like ${w.feelsC}°C)\n` +
+        `🌤️ Condition:   ${w.desc}\n` +
+        `💧 Humidity:    ${w.humidity}%\n` +
+        `💨 Wind:        ${w.windKmph} km/h ${w.windDir}\n` +
+        `📈 High: ${w.maxC}°C | Low: ${w.minC}°C\n` +
+        `☀️ UV Index: ${w.uvIndex}\n\n`;
     }
 
     body +=
-      `\n🎬 ${bold('59-segundo na weather video na may Tagalog voice!')}\n` +
-      `📡 ${bold('Pinagkukunan:')} wttr.in · TEAM STARTCOPE BETA\n` +
-      `🔗 pagasa.dost.gov.ph`;
+      `🎬 May kasamang 59-segundo weather video na may Tagalog voice!\n` +
+      `📡 Source: wttr.in | pagasa.dost.gov.ph\n` +
+      `🏷️ ${TEAM} #PhilippinesWeather #Panahon`;
 
-    // Generate Tagalog voice
+    // Generate Tagalog voice (time-aware greeting)
     const script = buildTagalogScript(w, location);
     voiceFp      = await makeTagalogVoice(script);
     audioFp      = await mixVoiceWithBg(voiceFp).catch(() => voiceFp);
@@ -467,31 +487,28 @@ async function runWeatherCycle() {
     const overlayLabel = w ? `${w.place}, Philippines` : location;
     videoFp = await makeWeatherVideo(imgFp, audioFp, overlayLabel, w);
 
-    // Send to ALL group chats
-    const threadIDs = getAllThreadIDs();
-    if (!threadIDs.length) {
-      console.log('[AutoWeather] ⚠️ No thread IDs found — skipping send');
-    } else {
-      let sent = 0;
-      for (const tid of threadIDs) {
-        try {
-          await new Promise((res, rej) => {
-            globalApi.sendMessage(
-              { body, attachment: fs.createReadStream(videoFp) },
-              tid,
-              (err) => err ? rej(err) : res()
-            );
-          });
-          sent++;
-          // Small delay between threads to avoid rate limiting
-          if (sent < threadIDs.length) await new Promise(r => setTimeout(r, 1500 + Math.random() * 1000));
-        } catch (sendErr) {
-          console.log(`[AutoWeather] ⚠️ Failed to send to thread ${tid}:`, sendErr.message?.slice(0, 60));
-        }
-      }
-      console.log(`[AutoWeather #${state.count + 1}] ✅ Sent to ${sent}/${threadIDs.length} GCs — ${location}`);
+    // POST IMAGE first (instant) — then post video
+    console.log(`[AutoWeather] 📤 Posting weather image to Facebook Wall...`);
+    try {
+      await doCreatePost(globalApi, body, fs.createReadStream(imgFp));
+    } catch (imgErr) {
+      console.log(`[AutoWeather] ⚠️ Image post failed (${imgErr.message?.slice(0, 60)}), posting text-only...`);
+      await doCreatePost(globalApi, body);
     }
 
+    // POST VIDEO — short delay between posts (human-like)
+    await new Promise(r => setTimeout(r, 3000 + Math.random() * 4000));
+    const vidBody =
+      `🎬 WEATHER VIDEO — ${w ? w.place : location} 🇵🇭\n` +
+      `${'─'.repeat(30)}\n` +
+      `🌡️ ${w ? `${w.tempC}°C | ${w.desc}` : 'Tingnan ang video!'}\n` +
+      `🎙️ Tagalog voice bulletin · 59 segundo\n` +
+      `📅 ${now} PH | 🏷️ ${TEAM}`;
+
+    console.log(`[AutoWeather] 📤 Posting weather video to Facebook Wall...`);
+    await doCreatePost(globalApi, vidBody, fs.createReadStream(videoFp));
+
+    console.log(`[AutoWeather #${state.count + 1}] ✅ Posted to Facebook Wall — ${location}`);
     state.count++;
     state.lastPostedAt = new Date().toISOString();
     state.errorCount   = 0;
@@ -523,7 +540,7 @@ function startAutoWeather(api) {
 
   const firstDelay = 15000 + Math.random() * 15000; // 15–30 sec
   weatherTimer = setTimeout(runWeatherCycle, firstDelay);
-  console.log(`[AutoWeather] ✅ Started — weather video every 3 min to all GCs`);
+  console.log(`[AutoWeather] ✅ Started — weather video every 3 min to Facebook Wall`);
   console.log(`[AutoWeather] ⏱️ First post in ${Math.round(firstDelay / 1000)}s — ${PH_LOCATIONS.length} PH cities`);
 }
 
@@ -540,7 +557,7 @@ module.exports.config = {
   version:         VERSION,
   hasPermssion:    2,
   credits:         TEAM,
-  description:     'Auto-posts Philippines weather VIDEO to all GCs every 3 min — 50+ cities, Tagalog voice, 59s video',
+  description:     'Auto-posts Philippines weather VIDEO to Facebook Wall every 3 min — 100+ cities, Tagalog voice, 59s video',
   commandCategory: 'Admin',
   usages:          '[on | off | status]',
   cooldowns:       5,
@@ -566,10 +583,10 @@ module.exports.run = async function ({ api, event, args }) {
       `║  🌤️ ${bold('AUTOWEATHER v' + VERSION)}         ║\n` +
       `║  🏷️  ${bold(TEAM)}   ║\n` +
       `╚═══════════════════════════════╝\n\n` +
-      `🇵🇭 ${bold('AUTO WEATHER VIDEO — 24/7 SA LAHAT NG GC!')}\n` +
-      `📹 ${bold('Nagse-send ng 59-segundo na weather video')}\n` +
-      `🎙️ ${bold('Tagalog voice')} na may background music\n` +
-      `🌍 ${bold('50+ Philippine cities')} — auto-rotating\n\n` +
+      `🇵🇭 ${bold('AUTO WEATHER VIDEO — 24/7 SA FACEBOOK WALL!')}\n` +
+      `📹 ${bold('Nagpo-post ng weather image + 59s video sa Facebook Wall')}\n` +
+      `🎙️ ${bold('Tagalog voice')} na may time-aware greeting (umaga/hapon/gabi)\n` +
+      `🌍 ${bold(`${PH_LOCATIONS.length}+ Philippine cities`)} — auto-rotating\n\n` +
       `📋 ${bold('KASAMA SA LISTAHAN:')}\n` +
       `  Minalabac · Naga City · Masbate · Manila\n` +
       `  Cebu · Davao · Baguio · Iloilo · Zamboanga\n` +
@@ -583,8 +600,8 @@ module.exports.run = async function ({ api, event, args }) {
       `  • ${bold('Total posts:')} ${state.count}\n` +
       `  • ${bold('Huling lugar:')} ${state.lastLocation || 'wala pa'}\n` +
       (state.lastPostedAt ? `  • ${bold('Huling post:')} ${new Date(state.lastPostedAt).toLocaleString('fil-PH', { timeZone: 'Asia/Manila' })}\n` : '') +
-      `\n🔒 ${bold('Admin only')} | Nagse-send sa lahat ng GC\n` +
-      `⚡ ${bold('KAIBA sa AutoMOR:')} AutoWeather → GC | AutoMOR → Wall`,
+      `\n🔒 ${bold('Admin only')} | Nagpo-post sa FACEBOOK WALL\n` +
+      `⚡ ${bold('KATULAD ng AutoMOR:')} Weather + Video → Facebook Wall`,
       threadID, messageID
     );
   }
@@ -600,8 +617,8 @@ module.exports.run = async function ({ api, event, args }) {
     return api.sendMessage(
       `✅ ${bold('AUTOWEATHER — NAGSIMULA NA! 🌤️🇵🇭')}\n\n` +
       `📹 ${bold('59-segundo na weather video bawat 3 minuto!')}\n` +
-      `🎙️ ${bold('Tagalog voice')} + background music\n` +
-      `📡 ${bold('Nagse-send sa LAHAT NG GROUP CHATS')}\n\n` +
+      `🎙️ ${bold('Tagalog voice')} na may time-aware greeting\n` +
+      `📡 ${bold('Nagpo-post sa FACEBOOK WALL (tulad ng AutoMOR)')}\n\n` +
       `🌍 ${bold(`${PH_LOCATIONS.length} Philippine cities ang covered:`)}\n` +
       `  Minalabac · Naga City · Masbate · Manila\n` +
       `  Cebu · Davao · Baguio · at marami pa!\n\n` +
@@ -636,7 +653,7 @@ module.exports.run = async function ({ api, event, args }) {
       `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n` +
       `  • ${bold('State:')} ${state.enabled ? '🟢 RUNNING' : '🔴 STOPPED'}\n` +
       `  • ${bold('Total posts:')} ${state.count}\n` +
-      `  • ${bold('Kasalukuyang GCs:')} ${threadIDs.length}\n` +
+      `  • ${bold('Posting to:')} Facebook Wall\n` +
       `  • ${bold('Susunod na lugar:')} ${PH_LOCATIONS[locationIndex % PH_LOCATIONS.length]}\n` +
       `  • ${bold('Kabuuang cities:')} ${PH_LOCATIONS.length}\n` +
       `  • ${bold('Interval:')} 3 minuto ± jitter\n` +

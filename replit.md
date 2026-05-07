@@ -65,6 +65,11 @@ A Facebook Messenger chatbot built with Node.js that listens for messages and re
 | `!quote` | Inspirational quote |
 | `!motivate` | Motivational speech |
 | `!lost` | Message for grieving |
+| `!sms list` | Show all saved contacts in phonebook |
+| `!sms add [name] [number]` | Save a contact (name + PH number) |
+| `!sms delete [name]` | Remove a contact from phonebook |
+| `!sms send [name/number] [msg]` | Send FREE SMS via TextBelt (no paid API key) |
+| `!sms balance` | Check remaining free SMS credits |
 | `!help`, `!ping`, `!uid`, `!admin`, etc. | Standard bot controls |
 
 ## Architecture decisions
@@ -76,8 +81,9 @@ A Facebook Messenger chatbot built with Node.js that listens for messages and re
 - `!createmusic` detects mood (love/sad/happy/gospel/upbeat) from the theme and generates a matching chord-based background using ffmpeg synth
 - Broadcast uses jitter scheduling (±5 min) to avoid Meta pattern detection
 - `!automor` has TWO independent timers: newsTimer (10 min) and videoTimer (4 min) — posts to **Facebook WALL**
-- `!autoweather` posts **59-second weather videos** to **ALL GROUP CHATS** every 3 min — 100+ Philippine cities
-- `!autovideo` posts **2-HOUR full Philippines news broadcast videos** to **Facebook WALL** every 5 min — animated anchor person, scrolling news ticker, Tagalog voice, custom ibb.co background
+- `!autoweather` posts **weather image + 59s video** to **FACEBOOK WALL** every 3 min — 100+ PH cities, time-aware Tagalog voice (umaga/hapon/gabi)
+- `!autovideo` posts **5-min Philippines news broadcast video** to **Facebook WALL** every 5 min — animated anchor overlay, scrolling ticker, Tagalog voice (time-aware greeting)
+- `!sms` — free SMS sending (TextBelt, key='textbelt', no paid API key), phonebook contacts, REST API on port 5050 (no auth)
 - `!canva` uses Pollinations AI for image generation (canvas npm unavailable — needs libuuid.so.1)
 - `!imgsearch` uses DuckDuckGo unofficial image API (free, no key — VQD token flow)
 - `!weather` / `!news` voice: **Tagalog only** — `fil-PH-AngeloNeural` (male), `fil-PH-BlessicaNeural` (female)
