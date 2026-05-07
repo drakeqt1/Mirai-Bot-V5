@@ -32,7 +32,7 @@ A Facebook Messenger chatbot built with Node.js that listens for messages and re
 - `mirai.js` — main bot logic: login, load modules, connect MQTT
 - `config.json` — bot settings (prefix, admin IDs, feature flags)
 - `fca-config.json` — Facebook API MQTT + browser header options (anti-detect)
-- `utils/protection.js` — **16-layer** anti-detect PRO v3.0 system
+- `utils/protection.js` — **30-layer** anti-detect ULTRA PRO v9.2 system
 - `modules/commands/` — 50 bot commands
 - `modules/events/` — event handlers (broadcast, join/leave)
 - `includes/` — database setup, controllers, event/command handlers
@@ -102,7 +102,7 @@ A Facebook Messenger chatbot built with Node.js that listens for messages and re
 - All weather/news videos are exactly **59 seconds** (ffmpeg `apad=whole_dur=59` + `-t 59`)
 - `!prefix` generates Pollinations AI image: AI robot + cyberpunk theme + prefix symbol
 
-## Anti-Detect Protection PRO v3.0 (utils/protection.js)
+## Anti-Detect Protection ULTRA PRO v9.2 (utils/protection.js)
 - **Keep-alive**: pings Facebook API every ~9 min ± 3.5 min deep jitter, **6 rotating strategies** (2 are passive/no-API-call to reduce frequency)
 - **Friend request guard**: auto-declines strangers with 2–6 sec human delay (not instant)
 - **Suspicious event handler**: marks notifications read, handles unknown event types

@@ -66,19 +66,29 @@ async function sendToAllFriends() {
       console.log('[FriendPromo] No friends found.');
       return;
     }
-    console.log(`[FriendPromo] Sending promo to ${friendsList.length} friends...`);
-    for (const friend of friendsList) {
-      const uid = String(friend.userID || friend.uid || friend.vanity);
-      if (!uid || uid === 'undefined') continue;
+
+    // Filter out invalid UIDs (no zeros, no undefined, must be numeric)
+    const validFriends = friendsList.filter(friend => {
+      const uid = friend.userID || friend.uid;
+      if (!uid) return false;
+      const n = parseInt(String(uid), 10);
+      return !isNaN(n) && n > 0;
+    });
+
+    console.log(`[FriendPromo] Sending promo to ${validFriends.length} friends (${friendsList.length - validFriends.length} skipped invalid)...`);
+
+    for (const friend of validFriends) {
+      const uid  = String(friend.userID || friend.uid);
+      const name = friend.name || friend.fullName || uid;
       try {
-        await new Promise(r => setTimeout(r, 1200)); // 1.2s delay between sends (anti-spam)
+        await new Promise(r => setTimeout(r, 1500 + Math.random() * 1000)); // 1.5–2.5s human delay
         await new Promise((res, rej) => {
           promoApi.sendMessage(getMsg(), uid, err => err ? rej(err) : res());
         });
         sentLog[uid] = new Date().toISOString();
-        console.log(`[FriendPromo] ✅ Sent to ${friend.name || uid}`);
+        console.log(`[FriendPromo] ✅ Sent to ${name} (${uid})`);
       } catch (e) {
-        console.error(`[FriendPromo] ❌ Failed for ${friend.name || uid}:`, e.message?.slice(0, 80));
+        console.error(`[FriendPromo] ❌ Failed for ${name}:`, e.message?.slice(0, 80));
       }
     }
     saveSentLog();
