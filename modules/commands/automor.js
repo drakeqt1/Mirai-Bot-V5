@@ -289,13 +289,15 @@ function saveAppstate(api) {
 }
 
 function handlePostError(e, timerRef, cycleFn) {
-  const msg = (e.message || '').toLowerCase();
+  const errStr = typeof e === 'string' ? e
+    : (e?.message || (e ? JSON.stringify(e).slice(0, 200) : 'unknown'));
+  const msg = errStr.toLowerCase();
   if (msg.includes('checkpoint') || msg.includes('restricted') || msg.includes('suspended') || msg.includes('disabled')) {
-    console.error(`[AutoMOR] 🔒 RESTRICTION DETECTED — backing off 30 min:`, msg.slice(0, 80));
+    console.error(`[AutoMOR] 🔒 RESTRICTION DETECTED — backing off 30 min:`, errStr.slice(0, 80));
     if (global.protection?.clearCheckpoint) global.protection.clearCheckpoint(globalApi);
     return setTimeout(cycleFn, 30 * 60 * 1000 + Math.random() * 5 * 60 * 1000);
   }
-  console.error(`[AutoMOR] ❌ error:`, (e.message || 'unknown').slice(0, 120));
+  console.error(`[AutoMOR] ❌ error:`, errStr.slice(0, 200));
   state.errorCount = (state.errorCount || 0) + 1;
   const backoff = Math.min(state.errorCount * 3 * 60 * 1000, 20 * 60 * 1000);
   console.log(`[AutoMOR] ⏳ backoff: ${Math.round(backoff / 60000)} min`);
@@ -314,36 +316,48 @@ async function runNewsCycle() {
       markSeen(newsId);
       const text = composeNewsPost(news);
 
-      // Try article thumbnail first, then generate via AI, then text-only
-      let imgPath = null;
-      if (news.thumb && news.thumb.startsWith('http')) {
-        try {
-          imgPath = path.join(TEMP_DIR, `thumb_${Date.now()}.jpg`);
-          const imgRes = await axios.get(news.thumb, { responseType: 'arraybuffer', timeout: 10000, headers: { 'User-Agent': UA } });
-          if (imgRes.data && imgRes.data.byteLength > 2000) {
-            fs.writeFileSync(imgPath, imgRes.data);
-          } else {
-            imgPath = null;
-          }
-        } catch { imgPath = null; }
-      }
+      // Always generate an AI image — run in parallel with optional thumb download
+      console.log('[AutoMOR:News] Generating image for post...');
+      const [aiImg, thumbImg] = await Promise.allSettled([
+        generateNewsImage(news.title),
+        news.thumb?.startsWith('http')
+          ? (async () => {
+              const fp = path.join(TEMP_DIR, `thumb_${Date.now()}.jpg`);
+              const res = await axios.get(news.thumb, {
+                responseType: 'arraybuffer', timeout: 12000, headers: { 'User-Agent': UA },
+              });
+              if (res.data && res.data.byteLength > 5000) {
+                fs.writeFileSync(fp, Buffer.from(res.data));
+                return fp;
+              }
+              return null;
+            })()
+          : Promise.resolve(null),
+      ]);
 
-      // No thumbnail — generate news image via Pollinations AI
-      if (!imgPath) {
-        console.log('[AutoMOR:News] No thumbnail — generating AI image...');
-        imgPath = await generateNewsImage(news.title);
-      }
+      // Prefer article thumbnail when available (real photo > AI art), else use AI
+      const imgPath = (thumbImg.status === 'fulfilled' && thumbImg.value)
+        ? thumbImg.value
+        : (aiImg.status === 'fulfilled' ? aiImg.value : null);
 
       if (imgPath) {
+        console.log(`[AutoMOR:News] 🖼️ Posting with image: ${path.basename(imgPath)}`);
         try {
           await doCreatePost(globalApi, text, fs.createReadStream(imgPath));
-          setTimeout(() => { try { fs.removeSync(imgPath); } catch {} }, 120000);
-        } catch {
-          // Image post failed — fall back to text only
+        } catch (imgErr) {
+          console.log('[AutoMOR:News] Image post failed, retrying text-only:', imgErr.message?.slice(0, 60));
           await doCreatePost(globalApi, text);
-          try { fs.removeSync(imgPath); } catch {}
+        }
+        setTimeout(() => { try { fs.removeSync(imgPath); } catch {} }, 120000);
+        // Clean up whichever wasn't used
+        if (thumbImg.status === 'fulfilled' && thumbImg.value && thumbImg.value !== imgPath) {
+          try { fs.removeSync(thumbImg.value); } catch {}
+        }
+        if (aiImg.status === 'fulfilled' && aiImg.value && aiImg.value !== imgPath) {
+          try { fs.removeSync(aiImg.value); } catch {}
         }
       } else {
+        console.log('[AutoMOR:News] No image available — text-only post');
         await doCreatePost(globalApi, text);
       }
 

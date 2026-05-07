@@ -28,7 +28,7 @@ A Facebook Messenger chatbot built with Node.js that listens for messages and re
 - `languages/` — `en.lang`, `vi.lang`
 - `utils/` — logging, utilities, runtime data
 
-## Commands (46 total)
+## Commands (48 total)
 | Command | Description |
 |---|---|
 | `!eval` / `!exec` | Owner: Execute JavaScript code live |
@@ -37,7 +37,12 @@ A Facebook Messenger chatbot built with Node.js that listens for messages and re
 | `!canva news [title]` | Generate STARTCOPE NEWS image (AI-designed, free) |
 | `!canva design [prompt]` | Generate custom AI design poster |
 | `!canva logo [text]` | Generate professional logo with star icon |
-| `!pdf school/enrollment/clearance/permit/letter [name]` | Generate printable PDF form, send as file |
+| `!pdf [your prompt]` | Generate custom PDF from ANY text — free for all users |
+| `!pdf school/enrollment/clearance/permit/letter [name]` | Generate printable school PDF form |
+| `!faceswap` | AI face swap — reply to image + attach face photo (free, HuggingFace AI) |
+| `!weather [location]` | Real-time weather image + text + voice (male/female) |
+| `!weather video [location]` | Short weather video clip with voice narration |
+| `!weather typhoon / bagyo` | Philippines typhoon/LPA tracker via PAGASA |
 | `!autofriend on/off/pending` | Admin: auto-accept all Facebook friend requests |
 | `!autopost on/off` | Admin: auto-post every 51 min to GC, 24/7 |
 | `!automor on/off` | Admin: dual-cycle — news+image every 10min, video every 4min |
