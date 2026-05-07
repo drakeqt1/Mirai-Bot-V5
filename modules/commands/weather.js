@@ -69,16 +69,17 @@ async function makeVoice(text, gender = 'male') {
   const tts = new MsEdgeTTS();
   await tts.setMetadata(
     gender === 'female' ? 'en-US-JennyNeural' : 'en-US-GuyNeural',
-    OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3
+    OUTPUT_FORMAT.AUDIO_24KHZ_96KBITRATE_MONO_MP3
   );
-  const readable = tts.toStream(text);
+  const { audioStream } = tts.toStream(text, { rate: '-5%', pitch: '+0Hz' });
   await new Promise((res, rej) => {
-    const ws = fs.createWriteStream(fp);
-    readable.pipe(ws);
-    ws.on('finish', res);
-    ws.on('error', rej);
-    readable.on('error', rej);
+    const chunks = [];
+    audioStream.on('data',  d => chunks.push(d));
+    audioStream.on('end',   () => { fs.writeFileSync(fp, Buffer.concat(chunks)); res(); });
+    audioStream.on('error', rej);
+    setTimeout(() => rej(new Error('TTS timeout')), 30000);
   });
+  if (!fs.existsSync(fp) || fs.statSync(fp).size < 500) throw new Error('TTS output empty');
   return fp;
 }
 
