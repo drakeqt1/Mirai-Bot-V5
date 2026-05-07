@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="fil">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>GOMO — Offline Library</title>
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#00e676" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="GOMO" />
+  <link rel="apple-touch-icon" href="/icon-192.png" />
+  <link rel="icon" href="/icon-192.png" type="image/png" />
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary:      #00e676;
+      --primary-dark: #00c853;
+      --primary-glow: rgba(0,230,118,0.18);
+      --bg:           #0a0a0a;
+      --surface:      #141414;
+      --surface2:     #1e1e1e;
+      --surface3:     #272727;
+      --border:       rgba(255,255,255,0.07);
+      --text:         #f0f0f0;
+      --sub:          #888;
+      --radius:       14px;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── TOP STATUS BAR ──────────────────────────── */
+    .status-bar {
+      background: #0d1a10;
+      border-bottom: 1px solid rgba(0,230,118,0.15);
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12px;
+      color: var(--primary);
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #ff4444;
+      flex-shrink: 0;
+      animation: pulse-red 1.5s ease-in-out infinite;
+    }
+    .status-online .status-dot { background: var(--primary); animation: pulse-green 2s ease-in-out infinite; }
+    @keyframes pulse-red   { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    @keyframes pulse-green { 0%,100%{opacity:1} 50%{opacity:0.6} }
+    .status-text { flex: 1; }
+    .back-btn {
+      padding: 5px 14px;
+      border-radius: 20px;
+      border: 1px solid var(--primary);
+      background: none;
+      color: var(--primary);
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.15s;
+      text-decoration: none;
+      display: inline-block;
+    }
+    .back-btn:hover { background: var(--primary); color: #000; }
+
+    /* ── HEADER ──────────────────────────────────── */
+    header {
+      text-align: center;
+      padding: 32px 20px 20px;
+      background: radial-gradient(ellipse at top, rgba(0,230,118,0.06) 0%, transparent 70%);
+    }
+    .brand-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 6px;
+    }
+    .brand-icon {
+      width: 52px; height: 52px;
+      background: var(--primary);
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 26px;
+      box-shadow: 0 0 24px rgba(0,230,118,0.4);
+    }
+    .brand-name {
+      font-size: 36px;
+      font-weight: 900;
+      color: var(--primary);
+      letter-spacing: -1px;
+    }
+    .brand-sub {
+      font-size: 13px;
+      color: var(--sub);
+      letter-spacing: 2px;
+      text-transform: uppercase;
+    }
+
+    /* ── OFFLINE HERO ────────────────────────────── */
+    .offline-hero {
+      text-align: center;
+      padding: 20px 20px 0;
+    }
+    .offline-icon { font-size: 48px; margin-bottom: 10px; }
+    .offline-title { font-size: 20px; font-weight: 800; color: var(--text); margin-bottom: 6px; }
+    .offline-sub { font-size: 13px; color: var(--sub); line-height: 1.6; }
+
+    /* ── LIBRARY ─────────────────────────────────── */
+    .library {
+      max-width: 700px;
+      margin: 24px auto;
+      padding: 0 16px;
+    }
+    .lib-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+      padding: 0 4px;
+    }
+    .lib-title {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      color: var(--sub);
+      text-transform: uppercase;
+    }
+    .lib-count {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--primary);
+      background: var(--primary-glow);
+      border-radius: 20px;
+      padding: 3px 10px;
+    }
+    .lib-clear {
+      font-size: 11px;
+      font-weight: 600;
+      color: #ff4444;
+      background: none;
+      border: 1px solid rgba(255,68,68,0.3);
+      border-radius: 20px;
+      padding: 3px 10px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.15s;
+    }
+    .lib-clear:hover { background: rgba(255,68,68,0.1); }
+
+    .track-list { display: flex; flex-direction: column; gap: 4px; }
+
+    .track-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .track-card:hover { background: var(--surface2); border-color: rgba(0,230,118,0.15); }
+    .track-card.playing {
+      background: var(--surface2);
+      border-color: rgba(0,230,118,0.4);
+      box-shadow: 0 0 0 1px rgba(0,230,118,0.1) inset;
+    }
+
+    .track-num {
+      width: 22px;
+      text-align: center;
+      color: var(--sub);
+      font-size: 13px;
+      font-weight: 500;
+      flex-shrink: 0;
+    }
+    .track-card.playing .track-num { color: var(--primary); }
+
+    .track-thumb-placeholder {
+      width: 46px; height: 46px;
+      border-radius: 8px;
+      background: var(--surface3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+    .track-info { flex: 1; min-width: 0; }
+    .track-title {
+      font-size: 14px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .track-card.playing .track-title { color: var(--primary); }
+    .track-size {
+      font-size: 11px;
+      color: var(--sub);
+      margin-top: 2px;
+    }
+
+    .track-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .btn-play {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(0,230,118,0.4);
+      background: transparent;
+      color: var(--primary);
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+    .btn-play:hover { background: var(--primary); color: #000; border-color: var(--primary); }
+    .track-card.playing .btn-play { background: var(--primary); color: #000; border-color: var(--primary); }
+    .btn-del {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      border: 1px solid rgba(255,68,68,0.3);
+      background: transparent;
+      color: #ff4444;
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+    .btn-del:hover { background: rgba(255,68,68,0.1); }
+
+    /* ── EMPTY STATE ─────────────────────────────── */
+    .empty-state {
+      text-align: center;
+      padding: 50px 20px;
+      color: var(--sub);
+    }
+    .empty-icon { font-size: 48px; margin-bottom: 12px; }
+    .empty-title { font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 8px; }
+    .empty-sub { font-size: 13px; color: var(--sub); line-height: 1.6; }
+
+    /* ── NOW PLAYING BAR ─────────────────────────── */
+    #player-bar {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: rgba(14,14,14,0.97);
+      backdrop-filter: blur(20px);
+      border-top: 1px solid var(--border);
+      padding: 10px 20px;
+      display: none;
+      align-items: center;
+      gap: 14px;
+      z-index: 100;
+      box-shadow: 0 -8px 40px rgba(0,0,0,0.5);
+    }
+    #player-bar.visible { display: flex; }
+    .player-info { flex: 1; min-width: 0; }
+    .player-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .player-sub { font-size: 11px; color: var(--sub); }
+    .player-controls { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+    .pc-btn {
+      width: 38px; height: 38px;
+      border-radius: 50%;
+      border: none;
+      background: var(--surface2);
+      color: var(--text);
+      font-size: 15px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+    }
+    .pc-btn:hover { background: var(--surface3); }
+    .pc-btn.primary-btn { background: var(--primary); color: #000; width: 44px; height: 44px; font-size: 17px; }
+    .pc-btn.primary-btn:hover { background: #1aff82; }
+
+    .player-progress-wrap {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      max-width: 260px;
+    }
+    .player-time { font-size: 10px; color: var(--sub); flex-shrink: 0; min-width: 30px; }
+    .player-progress {
+      flex: 1;
+      height: 4px;
+      background: var(--surface3);
+      border-radius: 2px;
+      cursor: pointer;
+      overflow: hidden;
+    }
+    .player-fill {
+      height: 100%;
+      background: var(--primary);
+      border-radius: 2px;
+      width: 0%;
+      transition: width 0.4s linear;
+      pointer-events: none;
+    }
+
+    /* ── LOADING ─────────────────────────────────── */
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid var(--surface3);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 40px auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── RESPONSIVE ──────────────────────────────── */
+    @media (max-width: 600px) {
+      .player-progress-wrap { display: none; }
+      .brand-name { font-size: 28px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── STATUS BAR ──────────────────────────────────── -->
+<div class="status-bar" id="statusBar">
+  <div class="status-dot" id="statusDot"></div>
+  <span class="status-text" id="statusText">Offline — Offline Library ang gamit</span>
+  <a href="/" class="back-btn" id="mainLink">🏠 GOMO App</a>
+</div>
+
+<!-- ── HEADER ──────────────────────────────────────── -->
+<header>
+  <div class="brand-row">
+    <div class="brand-icon">🎵</div>
+    <div class="brand-name">GOMO</div>
+  </div>
+  <div class="brand-sub">Offline Music Library · App v1.0</div>
+</header>
+
+<!-- ── OFFLINE HERO ────────────────────────────────── -->
+<div class="offline-hero">
+  <div class="offline-icon" id="offlineIcon">📶</div>
+  <div class="offline-title" id="offlineTitle">Walang Internet Connection</div>
+  <div class="offline-sub" id="offlineSub">Ang mga kanta na na-play o na-download mo ay maaari pang pakinggan kahit offline!</div>
+</div>
+
+<!-- ── LIBRARY ─────────────────────────────────────── -->
+<div class="library">
+  <div class="lib-header">
+    <div class="lib-title">🎧 Cached Music</div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <div class="lib-count" id="libCount">0 kanta</div>
+      <button class="lib-clear" id="clearAllBtn" onclick="clearAll()" style="display:none">🗑 Burahin Lahat</button>
+    </div>
+  </div>
+  <div id="trackList">
+    <div class="spinner"></div>
+  </div>
+</div>
+
+<!-- ── NOW PLAYING BAR ─────────────────────────────── -->
+<div id="player-bar">
+  <div class="player-info">
+    <div class="player-title" id="playerTitle">—</div>
+    <div class="player-sub">🎵 Offline Playback</div>
+  </div>
+  <div class="player-controls">
+    <button class="pc-btn" onclick="prevTrack()">⏮</button>
+    <button class="pc-btn primary-btn" id="playerBtn" onclick="togglePlay()">▶</button>
+    <button class="pc-btn" onclick="nextTrack()">⏭</button>
+  </div>
+  <div class="player-progress-wrap">
+    <span class="player-time" id="timeCur">0:00</span>
+    <div class="player-progress" onclick="seek(event)">
+      <div class="player-fill" id="progFill"></div>
+    </div>
+    <span class="player-time" id="timeDur">—</span>
+  </div>
+</div>
+
+<audio id="audioEl" preload="auto"></audio>
+
+<script>
+  const trackListEl  = document.getElementById('trackList');
+  const libCountEl   = document.getElementById('libCount');
+  const clearAllBtn  = document.getElementById('clearAllBtn');
+  const playerBar    = document.getElementById('player-bar');
+  const playerTitle  = document.getElementById('playerTitle');
+  const playerBtn    = document.getElementById('playerBtn');
+  const progFill     = document.getElementById('progFill');
+  const timeCur      = document.getElementById('timeCur');
+  const timeDur      = document.getElementById('timeDur');
+  const audioEl      = document.getElementById('audioEl');
+  const statusDot    = document.getElementById('statusDot');
+  const statusText   = document.getElementById('statusText');
+  const statusBar    = document.getElementById('statusBar');
+  const offlineIcon  = document.getElementById('offlineIcon');
+  const offlineTitle = document.getElementById('offlineTitle');
+  const offlineSub   = document.getElementById('offlineSub');
+
+  let cachedTracks = [];
+  let currentIdx   = -1;
+
+  // ── Online/offline detection ──────────────────────
+  function updateStatus() {
+    if (navigator.onLine) {
+      statusDot.style.background = 'var(--primary)';
+      statusText.textContent     = 'Online na! Bumalik sa GOMO App para mag-search ng bagong kanta.';
+      statusBar.classList.add('status-online');
+      offlineIcon.textContent  = '✅';
+      offlineTitle.textContent = 'Online ka na!';
+      offlineSub.textContent   = 'Pwede ka nang bumalik sa GOMO App para mag-search ng mga bagong kanta.';
+    } else {
+      statusDot.style.background = '#ff4444';
+      statusText.textContent     = 'Offline — Offline Library ang gamit';
+      statusBar.classList.remove('status-online');
+      offlineIcon.textContent  = '📶';
+      offlineTitle.textContent = 'Walang Internet Connection';
+      offlineSub.textContent   = 'Ang mga kanta na na-play o na-download mo ay maaari pang pakinggan dito!';
+    }
+  }
+  window.addEventListener('online',  updateStatus);
+  window.addEventListener('offline', updateStatus);
+  updateStatus();
+
+  // ── Load cached tracks from Service Worker ────────
+  function loadCachedTracks() {
+    if (!('serviceWorker' in navigator) || !navigator.serviceWorker.controller) {
+      // SW not controlling yet — try after a short delay
+      setTimeout(loadCachedTracks, 800);
+      return;
+    }
+    navigator.serviceWorker.controller.postMessage({ type: 'GET_CACHED_TRACKS' });
+  }
+
+  navigator.serviceWorker.addEventListener('message', (e) => {
+    if (e.data.type === 'CACHED_TRACKS') {
+      cachedTracks = e.data.tracks || [];
+      renderLibrary();
+    }
+    if (e.data.type === 'TRACK_DELETED') {
+      cachedTracks = cachedTracks.filter(t => t.key !== e.data.key);
+      renderLibrary();
+    }
+  });
+
+  function renderLibrary() {
+    libCountEl.textContent = `${cachedTracks.length} kanta`;
+    clearAllBtn.style.display = cachedTracks.length > 0 ? 'inline-block' : 'none';
+
+    if (cachedTracks.length === 0) {
+      trackListEl.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">🎵</div>
+          <div class="empty-title">Walang cached na kanta</div>
+          <div class="empty-sub">
+            Kapag may internet, i-play ang mga kanta sa GOMO App.<br>
+            Awtomatiko silang ma-cache para offline na gamitin!
+          </div>
+        </div>`;
+      return;
+    }
+
+    trackListEl.innerHTML = `<div class="track-list">${
+      cachedTracks.map((t, i) => `
+        <div class="track-card" id="card-${i}">
+          <div class="track-num">${i + 1}</div>
+          <div class="track-thumb-placeholder">🎵</div>
+          <div class="track-info">
+            <div class="track-title">${esc(t.title)}</div>
+            <div class="track-size">✅ Cached · offline playback ready</div>
+          </div>
+          <div class="track-actions">
+            <button class="btn-play" id="pbtn-${i}" onclick="playTrack(${i})" title="I-play">▶</button>
+            <button class="btn-del" onclick="deleteTrack(${i})" title="I-delete">🗑</button>
+          </div>
+        </div>`).join('')
+    }</div>`;
+  }
+
+  function esc(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  function fmtDur(s) {
+    if (!s || isNaN(s)) return '--:--';
+    return `${Math.floor(s/60)}:${String(Math.floor(s%60)).padStart(2,'0')}`;
+  }
+
+  // ── Playback ──────────────────────────────────────
+  function playTrack(idx) {
+    if (idx < 0 || idx >= cachedTracks.length) return;
+    const t = cachedTracks[idx];
+    currentIdx = idx;
+
+    document.querySelectorAll('.track-card').forEach(c => c.classList.remove('playing'));
+    const card = document.getElementById(`card-${idx}`);
+    if (card) { card.classList.add('playing'); card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+
+    playerTitle.textContent = t.title;
+    playerBar.classList.add('visible');
+    progFill.style.width = '0%';
+    timeCur.textContent  = '0:00';
+    timeDur.textContent  = '—';
+
+    audioEl.src = t.url;
+    audioEl.load();
+    audioEl.play().catch(() => { playerBtn.textContent = '▶'; });
+    playerBtn.textContent = '⏸';
+  }
+
+  function togglePlay() {
+    if (audioEl.paused) { audioEl.play(); playerBtn.textContent = '⏸'; }
+    else { audioEl.pause(); playerBtn.textContent = '▶'; }
+  }
+
+  function prevTrack() { if (currentIdx > 0) playTrack(currentIdx - 1); }
+  function nextTrack() { if (currentIdx < cachedTracks.length - 1) playTrack(currentIdx + 1); }
+
+  function seek(e) {
+    if (!audioEl.duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const pct  = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+    audioEl.currentTime = pct * audioEl.duration;
+  }
+
+  audioEl.addEventListener('timeupdate', () => {
+    if (!audioEl.duration) return;
+    progFill.style.width  = (audioEl.currentTime / audioEl.duration * 100) + '%';
+    timeCur.textContent   = fmtDur(audioEl.currentTime);
+    timeDur.textContent   = fmtDur(audioEl.duration);
+  });
+  audioEl.addEventListener('ended',  () => { playerBtn.textContent = '▶'; nextTrack(); });
+  audioEl.addEventListener('play',   () => { playerBtn.textContent = '⏸'; });
+  audioEl.addEventListener('pause',  () => { playerBtn.textContent = '▶'; });
+  audioEl.addEventListener('error',  () => { playerBtn.textContent = '▶'; });
+
+  // ── Delete / Clear ────────────────────────────────
+  function deleteTrack(idx) {
+    const t = cachedTracks[idx];
+    if (!t) return;
+    if (idx === currentIdx) { audioEl.pause(); audioEl.src = ''; playerBar.classList.remove('visible'); }
+    navigator.serviceWorker.controller?.postMessage({ type: 'DELETE_TRACK', url: t.url, key: t.key });
+  }
+
+  function clearAll() {
+    if (!confirm('Burahin ang lahat ng cached na kanta?')) return;
+    cachedTracks.forEach(t => {
+      navigator.serviceWorker.controller?.postMessage({ type: 'DELETE_TRACK', url: t.url, key: t.key });
+    });
+    audioEl.pause(); audioEl.src = '';
+    playerBar.classList.remove('visible');
+    cachedTracks = [];
+    renderLibrary();
+  }
+
+  // ── Service Worker registration + load ────────────
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js', { scope: '/' }).then(() => {
+      loadCachedTracks();
+    }).catch(() => {
+      // SW not supported or blocked
+      trackListEl.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">⚠️</div>
+          <div class="empty-title">Service Worker hindi available</div>
+          <div class="empty-sub">I-reload ang page o subukan sa ibang browser (Chrome/Samsung Internet).</div>
+        </div>`;
+    });
+
+    // Also load if SW is already active
+    if (navigator.serviceWorker.controller) loadCachedTracks();
+  } else {
+    trackListEl.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">⚠️</div>
+        <div class="empty-title">Hindi suportado ang offline mode</div>
+        <div class="empty-sub">Gamitin ang Chrome o Samsung Internet para sa offline music feature.</div>
+      </div>`;
+  }
+</script>
+</body>
+</html>

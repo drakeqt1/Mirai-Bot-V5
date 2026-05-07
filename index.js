@@ -86,6 +86,21 @@ async function handleRequest(req, res) {
     }
   }
 
+  // ── GET /offline.html → offline library page ───────────────────────────────
+  if (pathname === "/offline.html") {
+    try {
+      const html = fs.readFileSync(path.join(WEB_DIR, "offline.html"), "utf8");
+      res.writeHead(200, {
+        "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "no-cache",
+      });
+      return res.end(html);
+    } catch {
+      res.writeHead(404, { "Content-Type": "text/plain" });
+      return res.end("Not found");
+    }
+  }
+
   // ── GET /manifest.json → PWA manifest ─────────────────────────────────────
   if (pathname === "/manifest.json") {
     try {

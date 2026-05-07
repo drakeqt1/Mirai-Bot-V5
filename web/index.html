@@ -442,6 +442,70 @@
       cursor: pointer;
     }
 
+    /* ── OFFLINE TOAST ────────────────────────────── */
+    #offline-toast {
+      position: fixed;
+      top: 16px; left: 50%; transform: translateX(-50%);
+      background: #1a0d0d;
+      border: 1.5px solid #ff4444;
+      border-radius: 28px;
+      padding: 12px 20px;
+      display: none;
+      align-items: center;
+      gap: 10px;
+      z-index: 500;
+      box-shadow: 0 4px 30px rgba(0,0,0,0.6);
+      white-space: nowrap;
+      animation: dropIn 0.3s ease;
+    }
+    #offline-toast.show { display: flex; }
+    @keyframes dropIn { from { opacity:0; transform: translateX(-50%) translateY(-12px); } to { opacity:1; transform: translateX(-50%) translateY(0); } }
+    .ot-dot { width: 8px; height: 8px; border-radius: 50%; background: #ff4444; flex-shrink: 0; animation: pulse-red2 1.4s ease-in-out infinite; }
+    @keyframes pulse-red2 { 0%,100%{opacity:1} 50%{opacity:0.3} }
+    .ot-text { font-size: 12px; color: #f0f0f0; font-weight: 600; }
+    .ot-link {
+      padding: 5px 14px;
+      background: #ff4444;
+      border-radius: 20px;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 800;
+      text-decoration: none;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .ot-link:hover { background: #ff6666; }
+
+    /* ── OFFLINE LIBRARY BADGE in header ─────────── */
+    .badge-offline {
+      background: rgba(255,68,68,0.15);
+      color: #ff4444;
+      border-color: rgba(255,68,68,0.3);
+      cursor: pointer;
+      text-decoration: none;
+    }
+    .badge-offline:hover { background: rgba(255,68,68,0.25); }
+
+    /* ── TRACK CACHED notification ───────────────── */
+    #cache-toast {
+      position: fixed;
+      bottom: 80px; right: 16px;
+      background: #0d1a10;
+      border: 1px solid var(--primary);
+      border-radius: 14px;
+      padding: 10px 16px;
+      font-size: 12px;
+      color: var(--primary);
+      font-weight: 600;
+      z-index: 400;
+      display: none;
+      max-width: 260px;
+      box-shadow: 0 4px 20px rgba(0,230,118,0.2);
+      animation: slideInRight 0.3s ease;
+    }
+    #cache-toast.show { display: block; }
+    @keyframes slideInRight { from { opacity:0; transform: translateX(20px); } to { opacity:1; transform: translateX(0); } }
+
     /* ── FOOTER ───────────────────────────────────── */
     footer {
       text-align: center;
@@ -590,6 +654,7 @@
       <span class="badge">⚡ FREE DOWNLOAD</span>
       <span class="badge">🎧 PLAY PREVIEW</span>
       <span class="badge badge-install" id="headerInstallBtn" onclick="triggerInstall()" style="display:none">📲 I-INSTALL ANG APP</span>
+      <a href="/offline.html" class="badge badge-offline" id="offlineLibBadge" style="display:none">📴 OFFLINE LIBRARY</a>
       <span class="badge badge-grey">📻 HOME RADIO 95.1 NAGA</span>
       <span class="badge badge-grey">🏷️ MIRAI BOT V3</span>
     </div>
@@ -647,6 +712,16 @@
     <input type="range" id="vol-slider" min="0" max="1" step="0.05" value="1" oninput="setVolume(this.value)" />
   </div>
 </div>
+
+<!-- ── OFFLINE TOAST ───────────────────────────────── -->
+<div id="offline-toast">
+  <div class="ot-dot"></div>
+  <span class="ot-text">Offline ka — gamitin ang Offline Library</span>
+  <a href="/offline.html" class="ot-link">🎧 Pakinggan</a>
+</div>
+
+<!-- ── TRACK CACHED NOTIFICATION ──────────────────── -->
+<div id="cache-toast">✅ Na-cache! Pwede na offline pakinggan.</div>
 
 <!-- ── INSTALL BANNER (Android / Desktop) ─────────── -->
 <div id="install-banner">
@@ -934,13 +1009,56 @@
     installBanner.classList.remove('show');
   }
 
+  // ── Offline / Online detection ─────────────────────
+  const offlineToast   = document.getElementById('offline-toast');
+  const cacheToast     = document.getElementById('cache-toast');
+  const offlineLibBadge = document.getElementById('offlineLibBadge');
+  let cacheToastTimer  = null;
+
+  function updateOnlineStatus() {
+    if (navigator.onLine) {
+      offlineToast.classList.remove('show');
+      offlineLibBadge.style.display = 'none';
+    } else {
+      offlineToast.classList.add('show');
+      offlineLibBadge.style.display = 'inline-block';
+      // Disable search when offline
+      btn.disabled    = true;
+      btn.textContent = '📴 OFFLINE';
+      resultsEl.innerHTML = `<div class="state">
+        <div class="state-icon">📴</div>
+        <div class="state-title">Offline Mode</div>
+        <div class="state-sub">Walang internet. Pumunta sa <a href="/offline.html" style="color:var(--primary);font-weight:700">Offline Library</a> para pakinggan ang mga cached na kanta.</div>
+      </div>`;
+    }
+  }
+  window.addEventListener('online',  () => {
+    updateOnlineStatus();
+    btn.disabled    = false;
+    btn.textContent = '🔍 SEARCH';
+  });
+  window.addEventListener('offline', updateOnlineStatus);
+  updateOnlineStatus();
+
+  // ── SW Messages (track cached notification) ─────────
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', (e) => {
+      if (e.data && e.data.type === 'TRACK_CACHED') {
+        const title = e.data.title || 'Track';
+        cacheToast.textContent = `✅ Cached: "${title.slice(0,30)}" — pwede nang offline pakinggan!`;
+        cacheToast.classList.add('show');
+        clearTimeout(cacheToastTimer);
+        cacheToastTimer = setTimeout(() => cacheToast.classList.remove('show'), 4000);
+      }
+    });
+  }
+
   // ── Service Worker Registration ────────────────────
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('/sw.js', { scope: '/' })
         .then((reg) => {
           console.log('[GOMO SW] Registered — scope:', reg.scope);
-          // Check for updates every 60 min
           setInterval(() => reg.update(), 60 * 60 * 1000);
         })
         .catch((err) => {

@@ -1,16 +1,21 @@
 {
+  "id": "/gomo-app-v1",
   "name": "GOMO Song Download Free",
   "short_name": "GOMO",
-  "description": "Free music search, play, and download app by TEAM STARTCOPE BETA",
+  "description": "GOMO App v1.0 — Libreng music search, play, at download. Walang Chrome UI. Works offline. By TEAM STARTCOPE BETA.",
   "version": "1.0.0",
-  "start_url": "/",
+  "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "orientation": "portrait-primary",
   "background_color": "#0a0a0a",
   "theme_color": "#00e676",
   "lang": "fil",
+  "dir": "ltr",
   "categories": ["music", "entertainment"],
+  "iarc_rating_id": "",
+  "prefer_related_applications": false,
   "icons": [
     {
       "src": "/icon-72.png",
@@ -53,11 +58,22 @@
     {
       "name": "Maghanap ng Kanta",
       "short_name": "Search",
-      "description": "Maghanap ng libreng kanta",
-      "url": "/?action=search",
+      "description": "Libreng music search",
+      "url": "/?action=search&source=shortcut",
+      "icons": [{ "src": "/icon-96.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Offline Library",
+      "short_name": "Offline",
+      "description": "Pakinggan ang cached na mga kanta",
+      "url": "/offline.html?source=shortcut",
       "icons": [{ "src": "/icon-96.png", "sizes": "96x96" }]
     }
   ],
   "screenshots": [],
-  "prefer_related_applications": false
+  "related_applications": [],
+  "handle_links": "preferred",
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  }
 }
