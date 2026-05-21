@@ -33,7 +33,7 @@ module.exports.run = async function ({ api, event, Users, Threads }) {
 
         const type = (event.author == iduser)
             ? `👋 left the group`
-            : `🦶 was kicked by ${bold(nameAuthor)}`;
+            : `🦶 was kicked by ${nameAuthor}`;
 
         var msg = data?.customLeave ||
             `╔══════════════════╗\n║  🚪 ${bold('MEMBER LEFT')}   ║\n╚══════════════════╝\n\n` +
