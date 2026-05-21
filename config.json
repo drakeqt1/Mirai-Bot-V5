@@ -20,18 +20,18 @@
     "EMAIL": "",
     "PASSWORD": "",
     "OTPKEY": "",
-    "FACEBOOK_ADMIN": "https://www.facebook.com/manuelson.yasis",
-    "BOTNAME": "Mirai-V6",
-    "FB_PAGE_TOKEN": "EAAVjvjcV04YBRfBUz8xIohERiOmQCm5ERLnIINGjreS3Bq6HBPjIVmENi87CiS1l2MYPt2aNmtJeY3pguzVrodPm2lCvkw0zuTRwaXgW5OD9ZClabMY1buMXyk8K5mAb3CKzvVWrjt1JKJfinUw0ZCx3LxhbnnWsXI00N6vNZCBR0jLKQVZCRFUHYwXCbKzq0rZAv6QZDZD",
-    "PREFIX": "!",
-    "BOXADMIN": "61588479630286",
+    "FACEBOOK_ADMIN": "https://www.facebook.com/yooboyves",
+    "BOTNAME": "izuri",
+    "FB_PAGE_TOKEN": "",
+    "PREFIX": "+",
+    "BOXADMIN": "61589435986611",
     "ADMINBOT": [
-        "61588479630286",
-        "61576920532388"
+        "61589609982726",
+        "61589435986611"
     ],
     "NDH": [
-        "61576920532388",
-        "61588479630286"
+        "61589609982726",
+        "61589435986611"
     ],
     "version": "3.0.0",
     "menu": {
