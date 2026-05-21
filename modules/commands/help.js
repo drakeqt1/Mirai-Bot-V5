@@ -220,8 +220,8 @@ module.exports.run = async function ({ api, event, args }) {
     `⏱️ ${bold('Uptime:')}    ${fmtUptime(uptimeSec)}\n` +
     `💾 ${bold('Memory:')}    ${mem} MB\n` +
     `🤖 ${bold('Bot:')}       ${botName} v${version}\n` +
-    `👑 ${bold('Admin:')}     Manuelson Yasis\n` +
-    `🔗 ${bold('FB:')}        facebook.com/manuelson.yasis\n` +
+    `👑 ${bold('Admin:')}     Vescente\n` +
+    `🔗 ${bold('FB:')}        m.facebook.com/yooboyves\n` +
     `🏷️ ${bold('Team:')}      TEAM STARTCOPE BETA\n\n` +
     `💡 ${prefix}help [command]   → command details\n` +
     `💡 ${prefix}help all         → full command list\n` +
