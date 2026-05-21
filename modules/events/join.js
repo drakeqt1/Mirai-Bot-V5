@@ -66,7 +66,7 @@ module.exports.run = async function ({ api, event, Users }) {
       `⌨️ Prefix: ${bold(global.config.PREFIX)}\n` +
       `📖 Type ${global.config.PREFIX}help to see all commands!\n\n` +
       `👑 ${bold('Admin:')} Vescente\n` +
-      `🔗 fb.com/yooboyves`,
+      `🔗 facebook.com/yooboyves`,
       threadID
     );
   }
