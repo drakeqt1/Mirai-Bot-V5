@@ -65,8 +65,8 @@ module.exports.run = async function ({ api, event, Users }) {
       `🤖 I'm ${bold(global.config.BOTNAME || 'Mirai Bot')}!\n` +
       `⌨️ Prefix: ${bold(global.config.PREFIX)}\n` +
       `📖 Type ${global.config.PREFIX}help to see all commands!\n\n` +
-      `👑 ${bold('Admin:')} Manuelson Yasis\n` +
-      `🔗 fb.com/manuelson.yasis`,
+      `👑 ${bold('Admin:')} Vescente\n` +
+      `🔗 fb.com/yooboyves`,
       threadID
     );
   }
@@ -97,7 +97,7 @@ module.exports.run = async function ({ api, event, Users }) {
     memLengths.sort((a, b) => a - b);
 
     let msg = threadData.customJoin ||
-      `👋 Welcome {name}!\n\n🎉 Welcome to ${bold('{threadName}')}\n🔢 You are member #{memberCount}\n\n📖 Type ${global.config.PREFIX}help for commands!`;
+      `👋 Welcome {name}!\n\n🎉 Welcome to ${threadName}\n🔢 You are member #{memberCount}\n\n📖 Type ${global.config.PREFIX}help for commands!`;
 
     msg = msg
       .replace(/\{name}/g,        nameArray.join(', '))
